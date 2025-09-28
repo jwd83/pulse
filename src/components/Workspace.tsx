@@ -29,6 +29,7 @@ export const Workspace: React.FC<{ model: CircuitModel; setModel: (m: CircuitMod
 
   const startConnection = (pe: PortEvent) => {
     if (pe.portType !== 'out') return
+    console.log('Starting connection from:', pe);
     setConnecting({ from: { compId: pe.comp.id, port: pe.portName, x: pe.x, y: pe.y }, to: { x: pe.x, y: pe.y } })
   }
 
@@ -51,14 +52,26 @@ export const Workspace: React.FC<{ model: CircuitModel; setModel: (m: CircuitMod
     if (!connecting.from) return
     const rect = ref.current?.getBoundingClientRect()
     if (!rect) return
-    setConnecting((c) => ({ from: c.from, to: { x: e.clientX - rect.left, y: e.clientY - rect.top } }))
+
+    // Update connecting.to with clamped coordinates to ensure it stays within bounds
+    const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width))
+    const y = Math.max(0, Math.min(e.clientY - rect.top, rect.height))
+
+    setConnecting((c) => ({ from: c.from, to: { x, y } }))
   }
 
   // wire rendering: simple Manhattan routing between port positions (absolute within workspace)
   const renderWirePath = (x1: number, y1: number, x2: number, y2: number) => {
-    const mx = (x1 + x2) / 2
-    return `M ${x1} ${y1} L ${mx} ${y1} L ${mx} ${y2} L ${x2} ${y2}`
+    const mx1 = x1 + (x2 - x1) * 0.25 // First control point
+    const mx2 = x1 + (x2 - x1) * 0.75 // Second control point
+    return `M ${x1} ${y1} C ${mx1} ${y1}, ${mx2} ${y2}, ${x2} ${y2}` // Smooth cubic Bezier curve
   }
+
+  useEffect(() => {
+    if (connecting.from && connecting.to) {
+      console.log('Dragging wire:', connecting);
+    }
+  }, [connecting]);
 
   return (
     <div ref={ref} onPointerMove={onPointerMove} className="relative bg-white h-full border rounded" style={{ minHeight: 400 }}>
@@ -81,7 +94,13 @@ export const Workspace: React.FC<{ model: CircuitModel; setModel: (m: CircuitMod
         })}
 
         {connecting.from && connecting.to && (
-          <path d={renderWirePath(connecting.from.x, connecting.from.y, connecting.to.x, connecting.to.y)} stroke="#0077ff" strokeWidth={2} fill="none" strokeDasharray="6 4" />
+          <path
+            d={renderWirePath(connecting.from.x, connecting.from.y, connecting.to.x, connecting.to.y)}
+            stroke="#0077ff"
+            strokeWidth={2}
+            fill="none"
+            strokeDasharray="6 4"
+          />
         )}
       </svg>
 

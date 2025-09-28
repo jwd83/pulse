@@ -36,15 +36,23 @@ export const GateView: React.FC<{ comp: Component; onMove: (dx: number, dy: numb
   }, [])
 
   const emitPort = (name: string, type: 'in'|'out', ev: React.MouseEvent) => {
-    const r = ref.current?.getBoundingClientRect()
-    if (!r) return
-    const x = ev.clientX - r.left
-    const y = ev.clientY - r.top
-    const globalX = r.left + x
-    const globalY = r.top + y
-    const pe: PortEvent = { comp, portName: name, portType: type, x: globalX - (document.querySelector('#root')?.getBoundingClientRect().left||0), y: globalY - (document.querySelector('#root')?.getBoundingClientRect().top||0) }
-    if (type === 'out') onPortDown?.(pe)
-    else onPortUp?.(pe)
+    const r = ref.current?.getBoundingClientRect();
+    if (!r) return;
+
+    // Calculate port position relative to the canvas
+    const x = type === 'out' ? r.right : r.left;
+    const y = r.top + (type === 'out' ? r.height / 2 : ev.clientY - r.top);
+
+    const pe: PortEvent = {
+      comp,
+      portName: name,
+      portType: type,
+      x: x - (document.querySelector('#root')?.getBoundingClientRect().left || 0),
+      y: y - (document.querySelector('#root')?.getBoundingClientRect().top || 0),
+    };
+
+    if (type === 'out') onPortDown?.(pe);
+    else onPortUp?.(pe);
   }
 
   return (
