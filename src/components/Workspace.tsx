@@ -123,10 +123,17 @@ export const Workspace: React.FC<{ model: CircuitModel; setModel: (m: CircuitMod
           )
         })()}
       </svg>
-
-      {model.components.map((c) => (
-        <GateView key={c.id} comp={c}
-          onMove={(dx, dy) => {
+      {/** derive a UI-level signals map that includes input port signals copied from the source output signals */}
+      {(() => {
+        const uiSignals: Record<string, boolean> = { ...signals }
+        for (const w of model.wires) {
+          const fromKey = w.from.compId + ':' + w.from.port
+          const toKey = w.to.compId + ':' + w.to.port
+          uiSignals[toKey] = !!signals[fromKey]
+        }
+        return model.components.map((c) => (
+          <GateView key={c.id} comp={c}
+            onMove={(dx, dy) => {
             // clamp while moving inside container
             const rect = ref.current?.getBoundingClientRect()
             let nx = c.x + dx
@@ -139,11 +146,12 @@ export const Workspace: React.FC<{ model: CircuitModel; setModel: (m: CircuitMod
           }}
           onDelete={() => setModel({ ...model, components: model.components.filter((cc) => cc.id !== c.id) })}
           onUpdate={(patch) => setModel({ ...model, components: model.components.map((cc) => cc.id === c.id ? { ...cc, ...patch } : cc) })}
-          signals={signals}
+          signals={uiSignals}
           onPortDown={startConnection}
           onPortUp={endConnection}
         />
-      ))}
+        ))
+      })()}
     </div>
   )
 }
