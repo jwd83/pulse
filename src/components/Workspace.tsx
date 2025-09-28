@@ -28,9 +28,12 @@ export const Workspace: React.FC<{ model: CircuitModel; setModel: (m: CircuitMod
   }, [model, setModel])
 
   const startConnection = (pe: PortEvent) => {
-    if (pe.portType !== 'out') return
-    console.log('Starting connection from:', pe);
-    setConnecting({ from: { compId: pe.comp.id, port: pe.portName, x: pe.x, y: pe.y }, to: { x: pe.x, y: pe.y } })
+    if (pe.portType !== 'out') return;
+    const rect = ref.current?.getBoundingClientRect();
+    const x = rect ? pe.x - rect.left : pe.x;
+    const y = rect ? pe.y - rect.top : pe.y;
+    console.log('Starting connection with adjusted coordinates:', { x, y });
+    setConnecting({ from: { compId: pe.comp.id, port: pe.portName, x, y }, to: { x, y } })
   }
 
   const endConnection = (pe?: PortEvent) => {
@@ -62,6 +65,7 @@ export const Workspace: React.FC<{ model: CircuitModel; setModel: (m: CircuitMod
 
   // wire rendering: simple Manhattan routing between port positions (absolute within workspace)
   const renderWirePath = (x1: number, y1: number, x2: number, y2: number) => {
+    console.log('Rendering wire path with coordinates:', { x1, y1, x2, y2 });
     const mx1 = x1 + (x2 - x1) * 0.25 // First control point
     const mx2 = x1 + (x2 - x1) * 0.75 // Second control point
     return `M ${x1} ${y1} C ${mx1} ${y1}, ${mx2} ${y2}, ${x2} ${y2}` // Smooth cubic Bezier curve
@@ -70,6 +74,27 @@ export const Workspace: React.FC<{ model: CircuitModel; setModel: (m: CircuitMod
   useEffect(() => {
     if (connecting.from && connecting.to) {
       console.log('Dragging wire:', connecting);
+    }
+  }, [connecting]);
+
+  useEffect(() => {
+    if (connecting.from && connecting.to) {
+      console.log('Rendering wire:', {
+        from: connecting.from,
+        to: connecting.to,
+        path: renderWirePath(connecting.from.x, connecting.from.y, connecting.to.x, connecting.to.y),
+      });
+    }
+  }, [connecting]);
+
+  useEffect(() => {
+    const rect = ref.current?.getBoundingClientRect();
+    if (rect && connecting.from) {
+      console.log('Canvas bounds:', rect);
+      console.log('Connecting.from relative to canvas:', {
+        x: connecting.from.x - rect.left,
+        y: connecting.from.y - rect.top,
+      });
     }
   }, [connecting]);
 

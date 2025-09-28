@@ -68,7 +68,17 @@ export const GateView: React.FC<{ comp: Component; onMove: (dx: number, dy: numb
         <div className={`absolute left-1/2 -translate-x-1/2 bottom-0 w-3 h-3 rounded-full ${signals[comp.id+':OUT'] ? 'bg-green-500' : 'bg-gray-300'}`} />
       )}
       {comp.type === 'TOGGLE' && (
-        <button onClick={(e)=>{ e.stopPropagation(); onUpdate?.({ props: { ...comp.props, state: !comp.props.state } }) }} className="absolute left-1/2 -translate-x-1/2 bottom-0 text-xs bg-yellow-300 px-1 rounded">Flip</button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            const newState = !comp.props.state;
+            console.log('Toggling state:', { id: comp.id, oldState: comp.props.state, newState });
+            onUpdate?.({ props: { ...comp.props, state: newState } });
+          }}
+          className="absolute left-1/2 -translate-x-1/2 bottom-0 text-xs bg-yellow-300 px-1 rounded"
+        >
+          Flip
+        </button>
       )}
       <button onClick={(e) => { e.stopPropagation(); onDelete() }} className="absolute -top-2 -right-2 bg-red-400 text-white rounded-full text-xs w-5 h-5">×</button>
 
