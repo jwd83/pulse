@@ -72,7 +72,6 @@ export const GateView: React.FC<{ comp: Component; onMove: (dx: number, dy: numb
           onClick={(e) => {
             e.stopPropagation();
             const newState = !comp.props.state;
-            console.log('Toggling state:', { id: comp.id, oldState: comp.props.state, newState });
             onUpdate?.({ props: { ...comp.props, state: newState } });
           }}
           className="absolute left-1/2 -translate-x-1/2 bottom-0 text-xs bg-yellow-300 px-1 rounded"
@@ -107,7 +106,10 @@ export const GateView: React.FC<{ comp: Component; onMove: (dx: number, dy: numb
       {/* Output port - all components except LED have this */}
       {comp.type !== 'LED' && (
         <div
-          onMouseDown={(e)=>{ e.stopPropagation(); emitPort('OUT','out',e)}}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            emitPort('OUT', 'out', e);
+          }}
           className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-green-500 rounded-full"
         />
       )}
