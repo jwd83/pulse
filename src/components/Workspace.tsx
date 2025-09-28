@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react'
-import { CircuitModel, Component, Wire } from '../model'
+import { CircuitModel, Wire } from '../model'
 import { GateView, PortEvent } from './gate/GateView'
 
 export const Workspace: React.FC<{ model: CircuitModel; setModel: (m: CircuitModel) => void; signals?: Record<string, boolean> }> = ({ model, setModel, signals = {} }) => {
@@ -102,18 +102,26 @@ export const Workspace: React.FC<{ model: CircuitModel; setModel: (m: CircuitMod
             // two inputs: top and bottom third
             ty = w.to.port === 'A' ? to.y + 12 : to.y + 36
           }
-          return <path key={w.id} d={renderWirePath(fx, fy, tx, ty)} stroke="#111" strokeWidth={2} fill="none" />
+          // color wire based on the signal carried by the source component's output port
+          const sig = signals[from.id + ':' + w.from.port]
+          const color = sig ? 'red' : 'black'
+          return <path key={w.id} d={renderWirePath(fx, fy, tx, ty)} stroke={color} strokeWidth={2} fill="none" />
         })}
 
-        {connecting.from && connecting.to && (
-          <path
-            d={renderWirePath(connecting.from.x, connecting.from.y, connecting.to.x, connecting.to.y)}
-            stroke="#0077ff"
-            strokeWidth={2}
-            fill="none"
-            strokeDasharray="6 4"
-          />
-        )}
+        {connecting.from && connecting.to && (() => {
+          const fromComp = model.components.find((c) => c.id === connecting.from!.compId)
+          const sig = fromComp ? signals[fromComp.id + ':' + connecting.from!.port] : false
+          const color = sig ? 'red' : 'black'
+          return (
+            <path
+              d={renderWirePath(connecting.from.x, connecting.from.y, connecting.to.x, connecting.to.y)}
+              stroke={color}
+              strokeWidth={2}
+              fill="none"
+              strokeDasharray="6 4"
+            />
+          )
+        })()}
       </svg>
 
       {model.components.map((c) => (

@@ -65,7 +65,7 @@ export const GateView: React.FC<{ comp: Component; onMove: (dx: number, dy: numb
       className="absolute w-20 h-12 bg-gray-100 border rounded shadow flex items-center justify-center cursor-move select-none">
       <div className="text-sm font-medium">{comp.type}</div>
       {comp.type === 'LED' && (
-        <div className={`absolute left-1/2 -translate-x-1/2 bottom-0 w-3 h-3 rounded-full ${signals[comp.id+':OUT'] ? 'bg-green-500' : 'bg-gray-300'}`} />
+        <div className={`absolute left-1/2 -translate-x-1/2 bottom-0 w-3 h-3 rounded-full ${signals[comp.id+':OUT'] ? 'bg-red-600' : 'bg-black'}`} />
       )}
       {comp.type === 'TOGGLE' && (
         <button
@@ -86,18 +86,21 @@ export const GateView: React.FC<{ comp: Component; onMove: (dx: number, dy: numb
       {comp.type === 'LED' ? (
         <div
           onMouseDown={(e)=>{ e.stopPropagation(); emitPort('IN','in',e)}}
-          className="absolute left-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-blue-400 rounded-full"
+          className="absolute left-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full"
+          style={{ background: signals[comp.id+':IN'] ? 'red' : 'black' }}
         />
       ) : !['TOGGLE', 'CLOCK'].includes(comp.type) && (
         <>
           <div
             onMouseDown={(e)=>{ e.stopPropagation(); emitPort('A','in',e)}}
-            className={`absolute left-0 w-3 h-3 bg-blue-400 rounded-full ${comp.type === 'NOT' ? 'top-1/2 -translate-y-1/2' : 'top-3'}`}
+            className={`absolute left-0 w-3 h-3 rounded-full ${comp.type === 'NOT' ? 'top-1/2 -translate-y-1/2' : 'top-3'}`}
+            style={{ background: signals[comp.id+':A'] ? 'red' : 'black' }}
           />
           {comp.type !== 'NOT' && (
             <div
               onMouseDown={(e)=>{ e.stopPropagation(); emitPort('B','in',e)}}
-              className="absolute left-0 bottom-3 w-3 h-3 bg-blue-400 rounded-full"
+              className="absolute left-0 bottom-3 w-3 h-3 rounded-full"
+              style={{ background: signals[comp.id+':B'] ? 'red' : 'black' }}
             />
           )}
         </>
@@ -110,7 +113,8 @@ export const GateView: React.FC<{ comp: Component; onMove: (dx: number, dy: numb
             e.stopPropagation();
             emitPort('OUT', 'out', e);
           }}
-          className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-green-500 rounded-full"
+          className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full"
+          style={{ background: signals[comp.id+':OUT'] ? 'red' : 'black' }}
         />
       )}
     </div>
