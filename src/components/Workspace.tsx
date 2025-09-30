@@ -6,6 +6,7 @@ export const Workspace: React.FC<{ model: CircuitModel; setModel: (m: CircuitMod
   const ref = useRef<HTMLDivElement | null>(null)
   const latestModelRef = useRef<CircuitModel>(model)
   const [connecting, setConnecting] = useState<{ from?: { compId: string; port: string; x: number; y: number }; to?: { x: number; y: number } }>(() => ({}))
+  const [hoveredWire, setHoveredWire] = useState<string | null>(null)
 
   useEffect(() => {
     // keep components within bounds
@@ -51,6 +52,11 @@ export const Workspace: React.FC<{ model: CircuitModel; setModel: (m: CircuitMod
     setConnecting({})
   }
 
+  const deleteWire = (wireId: string) => {
+    setModel({ ...model, wires: model.wires.filter(w => w.id !== wireId) })
+    setHoveredWire(null)
+  }
+
   const onPointerMove = (e: React.PointerEvent) => {
     if (!connecting.from) return
     const rect = ref.current?.getBoundingClientRect()
@@ -70,21 +76,6 @@ export const Workspace: React.FC<{ model: CircuitModel; setModel: (m: CircuitMod
     return `M ${x1} ${y1} C ${mx1} ${y1}, ${mx2} ${y2}, ${x2} ${y2}` // Smooth cubic Bezier curve
   }
 
-  useEffect(() => {
-    if (connecting.from && connecting.to) {
-    }
-  }, [connecting]);
-
-  useEffect(() => {
-    if (connecting.from && connecting.to) {
-    }
-  }, [connecting]);
-
-  useEffect(() => {
-    const rect = ref.current?.getBoundingClientRect();
-    if (rect && connecting.from) {
-    }
-  }, [connecting]);
 
   // simple clock driver: toggle CLOCK components once per second
   useEffect(() => {
@@ -108,7 +99,7 @@ export const Workspace: React.FC<{ model: CircuitModel; setModel: (m: CircuitMod
 
   return (
     <div ref={ref} onPointerMove={onPointerMove} className="relative bg-white h-full border rounded" style={{ minHeight: 400 }}>
-      <svg className="absolute inset-0 w-full h-full pointer-events-none">
+      <svg className="absolute inset-0 w-full h-full" style={{ pointerEvents: 'none' }}>
         {model.wires.map((w) => {
           // resolve port positions from components
           const from = model.components.find((c) => c.id === w.from.compId)
@@ -125,8 +116,39 @@ export const Workspace: React.FC<{ model: CircuitModel; setModel: (m: CircuitMod
           }
           // color wire based on the signal carried by the source component's output port
           const sig = signals[from.id + ':' + w.from.port]
+          const isHovered = hoveredWire === w.id
           const color = sig ? 'red' : 'black'
-          return <path key={w.id} d={renderWirePath(fx, fy, tx, ty)} stroke={color} strokeWidth={2} fill="none" />
+          const strokeWidth = isHovered ? 4 : 2
+          const opacity = isHovered ? 0.8 : 1
+          const pathElement = renderWirePath(fx, fy, tx, ty)
+          
+          return (
+            <g key={w.id}>
+              {/* Invisible thicker path for easier clicking */}
+              <path
+                d={pathElement}
+                stroke="transparent"
+                strokeWidth={12}
+                fill="none"
+                style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+                onMouseEnter={() => setHoveredWire(w.id)}
+                onMouseLeave={() => setHoveredWire(null)}
+                onContextMenu={(e) => {
+                  e.preventDefault()
+                  deleteWire(w.id)
+                }}
+              />
+              {/* Visible wire */}
+              <path
+                d={pathElement}
+                stroke={color}
+                strokeWidth={strokeWidth}
+                fill="none"
+                opacity={opacity}
+                style={{ pointerEvents: 'none' }}
+              />
+            </g>
+          )
         })}
 
         {connecting.from && connecting.to && (() => {
