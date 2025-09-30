@@ -3,12 +3,59 @@ import { Workspace } from './components/Workspace'
 import { Palette } from './components/Palette'
 import { CircuitModel, ComponentType } from './model'
 import { evaluate } from './engine'
+import { downloadDesign, loadDesign } from './utils/json'
 
 export default function App() {
   const [model, setModel] = useState<CircuitModel>(() => ({ components: [], wires: [] }))
+  const [statusMessage, setStatusMessage] = useState<string>('')
+  const [isLoading, setIsLoading] = useState(false)
 
   const reset = useCallback(() => setModel({ components: [], wires: [] }), [])
   const [signals, setSignals] = useState<Record<string, boolean>>({})
+
+  // Show status messages temporarily
+  const showStatus = useCallback((message: string, duration = 3000) => {
+    setStatusMessage(message)
+    setTimeout(() => setStatusMessage(''), duration)
+  }, [])
+
+  const handleSave = useCallback(() => {
+    try {
+      if (model.components.length === 0 && model.wires.length === 0) {
+        showStatus('Nothing to save - design is empty')
+        return
+      }
+      
+      const timestamp = new Date().toLocaleString().replace(/[/:,]/g, '-')
+      const filename = `pulse-design-${timestamp}.json`
+      downloadDesign(model, filename)
+      showStatus('Design saved successfully!')
+    } catch (error) {
+      showStatus(`Failed to save: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }, [model, showStatus])
+
+  const handleLoad = useCallback(async () => {
+    if (isLoading) return
+    
+    setIsLoading(true)
+    try {
+      const result = await loadDesign()
+      if (result.success) {
+        setModel(result.model)
+        const name = result.metadata.name ? ` "${result.metadata.name}"` : ''
+        showStatus(`Design${name} loaded successfully!`)
+      } else {
+        if (result.error !== 'File selection cancelled') {
+          showStatus(`Failed to load: ${result.error}`)
+        }
+      }
+    } catch (error) {
+      showStatus(`Failed to load: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [isLoading, showStatus])
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -21,7 +68,34 @@ export default function App() {
     <div className="h-screen flex flex-col">
       <header className="bg-gray-800 text-white p-3 flex items-center">
         <h1 className="font-semibold mr-4">Pulse — Digital Logic Sandbox</h1>
-        <button onClick={reset} className="bg-red-500 px-3 py-1 rounded">New / Reset</button>
+        <div className="flex items-center space-x-2">
+          <button 
+            onClick={handleSave} 
+            className="bg-blue-500 hover:bg-blue-600 px-3 py-1 rounded transition-colors"
+            disabled={isLoading}
+          >
+            Save Design
+          </button>
+          <button 
+            onClick={handleLoad} 
+            className="bg-green-500 hover:bg-green-600 px-3 py-1 rounded transition-colors disabled:opacity-50"
+            disabled={isLoading}
+          >
+            {isLoading ? 'Loading...' : 'Load Design'}
+          </button>
+          <button 
+            onClick={reset} 
+            className="bg-red-500 hover:bg-red-600 px-3 py-1 rounded transition-colors"
+            disabled={isLoading}
+          >
+            New / Reset
+          </button>
+        </div>
+        {statusMessage && (
+          <div className="ml-4 px-3 py-1 bg-yellow-600 text-white rounded text-sm">
+            {statusMessage}
+          </div>
+        )}
       </header>
       <div className="flex flex-1">
         <aside className="w-60 border-r p-3">
