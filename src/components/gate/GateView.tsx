@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Component } from '../../model'
+import { getCustomComponentInputPorts, getCustomComponentOutputPorts } from '../../utils/custom-components'
 
 export type PortEvent = { comp: Component; portName: string; portType: 'in' | 'out'; x: number; y: number }
 
@@ -63,7 +64,9 @@ export const GateView: React.FC<{ comp: Component; onMove: (dx: number, dy: numb
       onMouseUp={onMouseUp}
       style={{ left: comp.x, top: comp.y }}
       className="absolute w-20 h-12 bg-gray-100 border rounded shadow flex items-center justify-center cursor-move select-none">
-      <div className="text-sm font-medium">{comp.type}</div>
+      <div className="text-sm font-medium">
+        {comp.type === 'CUSTOM' && comp.customDef ? comp.customDef.name : comp.type}
+      </div>
       {comp.type === 'LED' && (
         <div className={`absolute left-1/2 -translate-x-1/2 bottom-0 w-3 h-3 rounded-full ${signals[comp.id+':OUT'] ? 'bg-red-600' : 'bg-black'}`} />
       )}
@@ -82,14 +85,34 @@ export const GateView: React.FC<{ comp: Component; onMove: (dx: number, dy: numb
       <button onClick={(e) => { e.stopPropagation(); onDelete() }} className="absolute -top-2 -right-2 bg-red-400 text-white rounded-full text-xs w-5 h-5">×</button>
 
       {/* Input ports */}
-      {/* LED has single centered input, gates have one or two inputs */}
-      {comp.type === 'LED' ? (
+      {comp.type === 'CUSTOM' && comp.customDef ? (
+        // Custom component inputs
+        getCustomComponentInputPorts(comp.customDef).map((portName, index) => {
+          const totalInputs = comp.customDef!.inputPins.length
+          const spacing = totalInputs > 1 ? (48 - 12) / (totalInputs - 1) : 0 // 48px height, 12px for port size
+          const topOffset = totalInputs === 1 ? 18 : 6 + (index * spacing) // Center if single, distribute if multiple
+          
+          return (
+            <div
+              key={portName}
+              onMouseDown={(e)=>{ e.stopPropagation(); emitPort(portName,'in',e)}}
+              className="absolute left-0 w-3 h-3 rounded-full"
+              style={{ 
+                top: topOffset,
+                background: signals[comp.id + ':' + portName] ? 'red' : 'black' 
+              }}
+            />
+          )
+        })
+      ) : comp.type === 'LED' ? (
+        // LED has single centered input
         <div
           onMouseDown={(e)=>{ e.stopPropagation(); emitPort('IN','in',e)}}
           className="absolute left-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full"
           style={{ background: signals[comp.id+':IN'] ? 'red' : 'black' }}
         />
       ) : !['TOGGLE', 'CLOCK'].includes(comp.type) && (
+        // Standard logic gates
         <>
           <div
             onMouseDown={(e)=>{ e.stopPropagation(); emitPort('A','in',e)}}
@@ -107,7 +130,30 @@ export const GateView: React.FC<{ comp: Component; onMove: (dx: number, dy: numb
       )}
 
       {/* Output port - all components except LED have this */}
-      {comp.type !== 'LED' && (
+      {comp.type === 'CUSTOM' && comp.customDef ? (
+        // Custom component outputs
+        getCustomComponentOutputPorts(comp.customDef).map((portName, index) => {
+          const totalOutputs = comp.customDef!.outputPins.length
+          const spacing = totalOutputs > 1 ? (48 - 12) / (totalOutputs - 1) : 0
+          const topOffset = totalOutputs === 1 ? 18 : 6 + (index * spacing)
+          
+          return (
+            <div
+              key={portName}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                emitPort(portName, 'out', e);
+              }}
+              className="absolute right-0 w-3 h-3 rounded-full"
+              style={{ 
+                top: topOffset,
+                background: signals[comp.id + ':' + portName] ? 'red' : 'black' 
+              }}
+            />
+          )
+        })
+      ) : comp.type !== 'LED' && (
+        // Standard single output
         <div
           onMouseDown={(e) => {
             e.stopPropagation();

@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import { Workspace } from './components/Workspace'
 import { Palette } from './components/Palette'
-import { CircuitModel, ComponentType } from './model'
+import { CircuitModel, ComponentType, CustomComponentDefinition } from './model'
 import { evaluate } from './engine'
 import { downloadDesign, loadDesign } from './utils/json'
 
@@ -99,18 +99,22 @@ export default function App() {
       </header>
       <div className="flex flex-1">
         <aside className="w-60 border-r p-3">
-          <Palette onAdd={(type) => {
-            // add new component at default location
-            const id = 'c' + Math.random().toString(36).slice(2, 9)
-            const comp = {
-              id,
-              type,
-              x: 120,
-              y: 120,
-              props: {},
-            }
-            setModel((m) => ({ ...m, components: [...m.components, comp] }))
-          }} />
+          <Palette 
+            onAdd={(type, customDef) => {
+              // add new component at default location
+              const id = 'c' + Math.random().toString(36).slice(2, 9)
+              const comp = {
+                id,
+                type,
+                x: 120,
+                y: 120,
+                props: {},
+                ...(customDef ? { customDef } : {})
+              }
+              setModel((m) => ({ ...m, components: [...m.components, comp] }))
+            }}
+            onStatus={showStatus}
+          />
           <div className="mt-4">
             <h4 className="text-sm font-semibold">Signals</h4>
             <div className="text-xs text-gray-600">

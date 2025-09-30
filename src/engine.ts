@@ -1,4 +1,5 @@
 import { CircuitModel, Component, Wire } from './model'
+import { mapInputsToToggles, extractOutputsFromLeds, getCustomComponentInputPorts, getCustomComponentOutputPorts } from './utils/custom-components'
 
 export type SignalMap = Record<string, boolean>
 
@@ -22,6 +23,43 @@ export function evaluate(model: CircuitModel): SignalMap {
         return !!signals[w.from.compId + ':' + w.from.port]
     }
 
+    const computeCustomComponent = (c: Component): boolean => {
+        if (!c.customDef) return false
+        
+        // Gather inputs from wires connected to this component
+        const externalInputs: Record<string, boolean> = {}
+        const inputPorts = getCustomComponentInputPorts(c.customDef)
+        
+        inputPorts.forEach(port => {
+            externalInputs[port] = inputOf(c.id, port)
+        })
+        
+        // Map external inputs to internal TOGGLE states
+        const mappedComponents = mapInputsToToggles(c.customDef, externalInputs)
+        
+        // Create internal model with mapped components
+        const internalModel: CircuitModel = {
+            components: mappedComponents,
+            wires: c.customDef.internalModel.wires
+        }
+        
+        // Evaluate the internal model
+        const internalSignals = evaluate(internalModel)
+        
+        // Extract outputs from LEDs
+        const outputs = extractOutputsFromLeds(c.customDef, internalSignals)
+        
+        // Store all output signals for this component
+        const outputPorts = getCustomComponentOutputPorts(c.customDef)
+        outputPorts.forEach(port => {
+            const outputKey = c.id + ':' + port
+            signals[outputKey] = outputs[port] || false
+        })
+        
+        // Return the first output (for backward compatibility with single-output assumption)
+        return outputs['OUT0'] || false
+    }
+
     const computeOutput = (c: Component): boolean => {
         switch (c.type) {
             case 'TOGGLE':
@@ -43,6 +81,8 @@ export function evaluate(model: CircuitModel): SignalMap {
                 return Boolean(inputOf(c.id, 'A')) !== Boolean(inputOf(c.id, 'B'))
             case 'XNOR':
                 return Boolean(inputOf(c.id, 'A')) === Boolean(inputOf(c.id, 'B'))
+            case 'CUSTOM':
+                return computeCustomComponent(c)
             default:
                 return false
         }

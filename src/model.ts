@@ -9,6 +9,7 @@ export type ComponentType =
     | 'TOGGLE'
     | 'CLOCK'
     | 'LED'
+    | 'CUSTOM'
 
 export type Port = {
     id: string
@@ -17,12 +18,20 @@ export type Port = {
     y: number
 }
 
+export type CustomComponentDefinition = {
+    name: string
+    inputPins: string[]  // IDs of TOGGLE components that become inputs
+    outputPins: string[] // IDs of LED components that become outputs
+    internalModel: CircuitModel
+}
+
 export type Component = {
     id: string
     type: ComponentType
     x: number
     y: number
     props: Record<string, any>
+    customDef?: CustomComponentDefinition // Only present for CUSTOM components
 }
 
 export type Wire = {
