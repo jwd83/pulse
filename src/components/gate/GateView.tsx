@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Component } from '../../model'
 import { getCustomComponentInputPorts, getCustomComponentOutputPorts } from '../../utils/custom-components'
+import { getPortPosition } from '../../utils/port-positions'
 
 export type PortEvent = { comp: Component; portName: string; portType: 'in' | 'out'; x: number; y: number }
 
@@ -40,16 +41,15 @@ export const GateView: React.FC<{ comp: Component; onMove: (dx: number, dy: numb
     const r = ref.current?.getBoundingClientRect();
     if (!r) return;
 
-    // Calculate port position relative to the canvas
-    const x = type === 'out' ? r.right : r.left;
-    const y = r.top + (type === 'out' ? r.height / 2 : ev.clientY - r.top);
-
+    // Use the actual port position calculation for consistency
+    const portPos = getPortPosition(comp, name, type === 'in' ? 'input' : 'output')
+    
     const pe: PortEvent = {
       comp,
       portName: name,
       portType: type,
-      x: x - (document.querySelector('#root')?.getBoundingClientRect().left || 0),
-      y: y - (document.querySelector('#root')?.getBoundingClientRect().top || 0),
+      x: portPos.x,
+      y: portPos.y,
     };
 
     if (type === 'out') onPortDown?.(pe);
@@ -88,9 +88,9 @@ export const GateView: React.FC<{ comp: Component; onMove: (dx: number, dy: numb
       {comp.type === 'CUSTOM' && comp.customDef ? (
         // Custom component inputs
         getCustomComponentInputPorts(comp.customDef).map((portName, index) => {
-          const totalInputs = comp.customDef!.inputPins.length
-          const spacing = totalInputs > 1 ? (48 - 12) / (totalInputs - 1) : 0 // 48px height, 12px for port size
-          const topOffset = totalInputs === 1 ? 18 : 6 + (index * spacing) // Center if single, distribute if multiple
+          const portPos = getPortPosition(comp, portName, 'input')
+          // Convert absolute position to relative position within component
+          const relativeTop = portPos.y - comp.y - 6 // Adjust for port visual center (6px = half of 12px port height)
           
           return (
             <div
@@ -98,7 +98,7 @@ export const GateView: React.FC<{ comp: Component; onMove: (dx: number, dy: numb
               onMouseDown={(e)=>{ e.stopPropagation(); emitPort(portName,'in',e)}}
               className="absolute left-0 w-3 h-3 rounded-full"
               style={{ 
-                top: topOffset,
+                top: relativeTop,
                 background: signals[comp.id + ':' + portName] ? 'red' : 'black' 
               }}
             />
@@ -106,26 +106,52 @@ export const GateView: React.FC<{ comp: Component; onMove: (dx: number, dy: numb
         })
       ) : comp.type === 'LED' ? (
         // LED has single centered input
-        <div
-          onMouseDown={(e)=>{ e.stopPropagation(); emitPort('IN','in',e)}}
-          className="absolute left-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full"
-          style={{ background: signals[comp.id+':IN'] ? 'red' : 'black' }}
-        />
+        (() => {
+          const portPos = getPortPosition(comp, 'IN', 'input')
+          const relativeTop = portPos.y - comp.y - 6
+          return (
+            <div
+              onMouseDown={(e)=>{ e.stopPropagation(); emitPort('IN','in',e)}}
+              className="absolute left-0 w-3 h-3 rounded-full"
+              style={{ 
+                top: relativeTop,
+                background: signals[comp.id+':IN'] ? 'red' : 'black' 
+              }}
+            />
+          )
+        })()
       ) : !['TOGGLE', 'CLOCK'].includes(comp.type) && (
         // Standard logic gates
         <>
-          <div
-            onMouseDown={(e)=>{ e.stopPropagation(); emitPort('A','in',e)}}
-            className={`absolute left-0 w-3 h-3 rounded-full ${comp.type === 'NOT' ? 'top-1/2 -translate-y-1/2' : 'top-3'}`}
-            style={{ background: signals[comp.id+':A'] ? 'red' : 'black' }}
-          />
-          {comp.type !== 'NOT' && (
-            <div
-              onMouseDown={(e)=>{ e.stopPropagation(); emitPort('B','in',e)}}
-              className="absolute left-0 bottom-3 w-3 h-3 rounded-full"
-              style={{ background: signals[comp.id+':B'] ? 'red' : 'black' }}
-            />
-          )}
+          {(() => {
+            const portPos = getPortPosition(comp, 'A', 'input')
+            const relativeTop = portPos.y - comp.y - 6
+            return (
+              <div
+                onMouseDown={(e)=>{ e.stopPropagation(); emitPort('A','in',e)}}
+                className="absolute left-0 w-3 h-3 rounded-full"
+                style={{ 
+                  top: relativeTop,
+                  background: signals[comp.id+':A'] ? 'red' : 'black' 
+                }}
+              />
+            )
+          })()
+          }
+          {comp.type !== 'NOT' && (() => {
+            const portPos = getPortPosition(comp, 'B', 'input')
+            const relativeTop = portPos.y - comp.y - 6
+            return (
+              <div
+                onMouseDown={(e)=>{ e.stopPropagation(); emitPort('B','in',e)}}
+                className="absolute left-0 w-3 h-3 rounded-full"
+                style={{ 
+                  top: relativeTop,
+                  background: signals[comp.id+':B'] ? 'red' : 'black' 
+                }}
+              />
+            )
+          })()}
         </>
       )}
 
@@ -133,9 +159,8 @@ export const GateView: React.FC<{ comp: Component; onMove: (dx: number, dy: numb
       {comp.type === 'CUSTOM' && comp.customDef ? (
         // Custom component outputs
         getCustomComponentOutputPorts(comp.customDef).map((portName, index) => {
-          const totalOutputs = comp.customDef!.outputPins.length
-          const spacing = totalOutputs > 1 ? (48 - 12) / (totalOutputs - 1) : 0
-          const topOffset = totalOutputs === 1 ? 18 : 6 + (index * spacing)
+          const portPos = getPortPosition(comp, portName, 'output')
+          const relativeTop = portPos.y - comp.y - 6
           
           return (
             <div
@@ -146,23 +171,30 @@ export const GateView: React.FC<{ comp: Component; onMove: (dx: number, dy: numb
               }}
               className="absolute right-0 w-3 h-3 rounded-full"
               style={{ 
-                top: topOffset,
+                top: relativeTop,
                 background: signals[comp.id + ':' + portName] ? 'red' : 'black' 
               }}
             />
           )
         })
-      ) : comp.type !== 'LED' && (
+      ) : comp.type !== 'LED' && (() => {
         // Standard single output
-        <div
-          onMouseDown={(e) => {
-            e.stopPropagation();
-            emitPort('OUT', 'out', e);
-          }}
-          className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full"
-          style={{ background: signals[comp.id+':OUT'] ? 'red' : 'black' }}
-        />
-      )}
+        const portPos = getPortPosition(comp, 'OUT', 'output')
+        const relativeTop = portPos.y - comp.y - 6
+        return (
+          <div
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              emitPort('OUT', 'out', e);
+            }}
+            className="absolute right-0 w-3 h-3 rounded-full"
+            style={{ 
+              top: relativeTop,
+              background: signals[comp.id+':OUT'] ? 'red' : 'black' 
+            }}
+          />
+        )
+      })()}
     </div>
   )
 }

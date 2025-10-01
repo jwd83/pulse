@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react'
 import { CircuitModel, Wire } from '../model'
 import { GateView, PortEvent } from './gate/GateView'
+import { getPortPosition } from '../utils/port-positions'
 
 export const Workspace: React.FC<{ model: CircuitModel; setModel: (m: CircuitModel) => void; signals?: Record<string, boolean> }> = ({ model, setModel, signals = {} }) => {
   const ref = useRef<HTMLDivElement | null>(null)
@@ -31,10 +32,9 @@ export const Workspace: React.FC<{ model: CircuitModel; setModel: (m: CircuitMod
 
   const startConnection = (pe: PortEvent) => {
     if (pe.portType !== 'out') return;
-    const rect = ref.current?.getBoundingClientRect();
-    const x = rect ? pe.x - rect.left : pe.x;
-    const y = rect ? pe.y - rect.top : pe.y;
-    setConnecting({ from: { compId: pe.comp.id, port: pe.portName, x, y }, to: { x, y } })
+    // Use the exact port position calculation for consistency
+    const portPos = getPortPosition(pe.comp, pe.portName, 'output')
+    setConnecting({ from: { compId: pe.comp.id, port: pe.portName, x: portPos.x, y: portPos.y }, to: { x: portPos.x, y: portPos.y } })
   }
 
   const endConnection = (pe?: PortEvent) => {
@@ -105,15 +105,15 @@ export const Workspace: React.FC<{ model: CircuitModel; setModel: (m: CircuitMod
           const from = model.components.find((c) => c.id === w.from.compId)
           const to = model.components.find((c) => c.id === w.to.compId)
           if (!from || !to) return null
-          // calculate port positions
-          const fx = from.x + 80 // output always on right
-          const fy = from.y + 24 // vertical center
-          const tx = to.x
-          let ty = to.y + 24 // default to center for NOT and LED
-          if (to.type !== 'NOT' && to.type !== 'LED') {
-            // two inputs: top and bottom third
-            ty = w.to.port === 'A' ? to.y + 12 : to.y + 36
-          }
+          
+          // calculate exact port positions
+          const fromPos = getPortPosition(from, w.from.port, 'output')
+          const toPos = getPortPosition(to, w.to.port, 'input')
+          
+          const fx = fromPos.x
+          const fy = fromPos.y
+          const tx = toPos.x
+          const ty = toPos.y
           // color wire based on the signal carried by the source component's output port
           const sig = signals[from.id + ':' + w.from.port]
           const isHovered = hoveredWire === w.id
