@@ -82,7 +82,7 @@ export const GateView: React.FC<{ comp: Component; onMove: (dx: number, dy: numb
           Flip
         </button>
       )}
-      <button onClick={(e) => { e.stopPropagation(); onDelete() }} className="absolute -top-2 -right-2 bg-red-400 text-white rounded-full text-xs w-5 h-5">×</button>
+      <button onClick={(e) => { e.stopPropagation(); onDelete() }} className="absolute -top-2 left-1/2 -translate-x-1/2 bg-red-400 text-white rounded-full text-xs w-5 h-5">×</button>
 
       {/* Input ports */}
       {comp.type === 'CUSTOM' && comp.customDef ? (
