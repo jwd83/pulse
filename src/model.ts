@@ -10,6 +10,7 @@ export type ComponentType =
     | 'CLOCK'
     | 'LED'
     | 'CUSTOM'
+    | 'REGISTER'
 
 export type Port = {
     id: string

@@ -7,8 +7,8 @@ import { getCustomComponentInputPorts, getCustomComponentOutputPorts } from './c
 export function getPortPosition(component: Component, portName: string, portType: 'input' | 'output'): { x: number, y: number } {
   const baseX = component.x
   const baseY = component.y
-  const componentWidth = 80
-  const componentHeight = 48
+  const componentWidth = 96
+  const componentHeight = 64
 
   if (portType === 'output') {
     // Output ports are always on the right side
@@ -57,15 +57,19 @@ export function getPortPosition(component: Component, portName: string, portType
     } else if (component.type === 'LED') {
       // LED has single centered input
       return { x: inputX, y: baseY + componentHeight / 2 }
+    } else if (component.type === 'REGISTER') {
+        if (portName === 'D') return { x: inputX, y: baseY + 12 }
+        if (portName === 'EN') return { x: inputX, y: baseY + 32 }
+        if (portName === 'CLK') return { x: inputX, y: baseY + 52 }
     } else if (component.type === 'NOT') {
       // NOT gate has single centered input
       return { x: inputX, y: baseY + componentHeight / 2 }
     } else if (!['TOGGLE', 'CLOCK'].includes(component.type)) {
       // Standard logic gates with A and B inputs
       if (portName === 'A') {
-        return { x: inputX, y: baseY + 12 } // Top third
+        return { x: inputX, y: baseY + 16 } // Top third
       } else if (portName === 'B') {
-        return { x: inputX, y: baseY + 36 } // Bottom third
+        return { x: inputX, y: baseY + 48 } // Bottom third
       }
     }
   }
@@ -85,6 +89,8 @@ export function getComponentInputPorts(component: Component): string[] {
     return getCustomComponentInputPorts(component.customDef)
   } else if (component.type === 'LED') {
     return ['IN']
+  } else if (component.type === 'REGISTER') {
+    return ['D', 'EN', 'CLK']
   } else if (component.type === 'NOT') {
     return ['A']
   } else if (!['TOGGLE', 'CLOCK'].includes(component.type)) {

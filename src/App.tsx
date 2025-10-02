@@ -1,8 +1,8 @@
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { Workspace } from './components/Workspace'
 import { Palette } from './components/Palette'
 import { CircuitModel, ComponentType, CustomComponentDefinition } from './model'
-import { evaluate } from './engine'
+import { evaluate, updateStatefulComponents } from './engine'
 import { downloadDesign, loadDesign } from './utils/json'
 
 export default function App() {
@@ -57,12 +57,21 @@ export default function App() {
     }
   }, [isLoading, showStatus])
 
+  const prevSignalsRef = useRef<Record<string, boolean>>({})
+
   useEffect(() => {
     const id = setInterval(() => {
-      setSignals(evaluate(model))
+      setModel(currentModel => {
+        const newSignals = evaluate(currentModel)
+        const newModel = updateStatefulComponents(currentModel, newSignals, prevSignalsRef.current)
+        
+        prevSignalsRef.current = newSignals
+        setSignals(newSignals)
+        return newModel
+      })
     }, 60)
     return () => clearInterval(id)
-  }, [model])
+  }, [])
 
   return (
     <div className="h-screen flex flex-col">

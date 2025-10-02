@@ -63,7 +63,7 @@ export const GateView: React.FC<{ comp: Component; onMove: (dx: number, dy: numb
       onMouseMove={onMouseMove}
       onMouseUp={onMouseUp}
       style={{ left: comp.x, top: comp.y }}
-      className="absolute w-20 h-12 bg-gray-100 border rounded shadow flex items-center justify-center cursor-move select-none">
+      className="absolute w-24 h-16 bg-gray-100 border rounded shadow flex items-center justify-center cursor-move select-none">
       <div className="text-sm font-medium">
         {comp.type === 'CUSTOM' && comp.customDef ? comp.customDef.name : comp.type}
       </div>
@@ -85,7 +85,26 @@ export const GateView: React.FC<{ comp: Component; onMove: (dx: number, dy: numb
       <button onClick={(e) => { e.stopPropagation(); onDelete() }} className="absolute -top-2 left-1/2 -translate-x-1/2 bg-red-400 text-white rounded-full text-xs w-5 h-5">×</button>
 
       {/* Input ports */}
-      {comp.type === 'CUSTOM' && comp.customDef ? (
+      {comp.type === 'REGISTER' ? (
+        <>
+          {['D', 'EN', 'CLK'].map(portName => {
+            const portPos = getPortPosition(comp, portName, 'input')
+            const relativeTop = portPos.y - comp.y - 6
+            return (
+              <div
+                key={portName}
+                                onMouseDown={(e) => { e.stopPropagation(); emitPort(portName, 'in', e) }}
+                                className="absolute left-0 w-3 h-3 rounded-full"
+                                style={{
+                                  top: relativeTop,
+                                  background: signals[comp.id + ':' + portName] ? 'red' : 'black'
+                                }}
+                              >
+                                <span className="absolute -left-4 text-xs w-10 text-right">{portName}</span>              </div>
+            )
+          })}
+        </>
+      ) : comp.type === 'CUSTOM' && comp.customDef ? (
         // Custom component inputs
         getCustomComponentInputPorts(comp.customDef).map((portName, index) => {
           const portPos = getPortPosition(comp, portName, 'input')
@@ -101,7 +120,9 @@ export const GateView: React.FC<{ comp: Component; onMove: (dx: number, dy: numb
                 top: relativeTop,
                 background: signals[comp.id + ':' + portName] ? 'red' : 'black' 
               }}
-            />
+            >
+                <span className="absolute -left-4 text-xs w-10 text-right">{portName}</span>
+            </div>
           )
         })
       ) : comp.type === 'LED' ? (
@@ -117,7 +138,9 @@ export const GateView: React.FC<{ comp: Component; onMove: (dx: number, dy: numb
                 top: relativeTop,
                 background: signals[comp.id+':IN'] ? 'red' : 'black' 
               }}
-            />
+            >
+                <span className="absolute -left-4 text-xs w-10 text-right">IN</span>
+            </div>
           )
         })()
       ) : !['TOGGLE', 'CLOCK'].includes(comp.type) && (
@@ -134,7 +157,9 @@ export const GateView: React.FC<{ comp: Component; onMove: (dx: number, dy: numb
                   top: relativeTop,
                   background: signals[comp.id+':A'] ? 'red' : 'black' 
                 }}
-              />
+              >
+                  <span className="absolute -left-4 text-xs w-10 text-right">A</span>
+              </div>
             )
           })()
           }
@@ -149,7 +174,9 @@ export const GateView: React.FC<{ comp: Component; onMove: (dx: number, dy: numb
                   top: relativeTop,
                   background: signals[comp.id+':B'] ? 'red' : 'black' 
                 }}
-              />
+              >
+                  <span className="absolute -left-4 text-xs w-10 text-right">B</span>
+              </div>
             )
           })()}
         </>
@@ -174,7 +201,9 @@ export const GateView: React.FC<{ comp: Component; onMove: (dx: number, dy: numb
                 top: relativeTop,
                 background: signals[comp.id + ':' + portName] ? 'red' : 'black' 
               }}
-            />
+            >
+                <span className="absolute -right-10 text-xs w-10">{portName}</span>
+            </div>
           )
         })
       ) : comp.type !== 'LED' && (() => {
@@ -192,7 +221,9 @@ export const GateView: React.FC<{ comp: Component; onMove: (dx: number, dy: numb
               top: relativeTop,
               background: signals[comp.id+':OUT'] ? 'red' : 'black' 
             }}
-          />
+          >
+              <span className="absolute -right-10 text-xs w-10">OUT</span>
+          </div>
         )
       })()}
     </div>

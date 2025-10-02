@@ -81,6 +81,8 @@ export function evaluate(model: CircuitModel): SignalMap {
                 return Boolean(inputOf(c.id, 'A')) !== Boolean(inputOf(c.id, 'B'))
             case 'XNOR':
                 return Boolean(inputOf(c.id, 'A')) === Boolean(inputOf(c.id, 'B'))
+            case 'REGISTER':
+                return !!c.props.state
             case 'CUSTOM':
                 return computeCustomComponent(c)
             default:
@@ -155,4 +157,36 @@ export function evaluate(model: CircuitModel): SignalMap {
     }
 
     return signals
+}
+
+export function updateStatefulComponents(model: CircuitModel, signals: SignalMap, prevSignals: SignalMap): CircuitModel {
+    const newComps = model.components.map(c => {
+        if (c.type === 'CLOCK') {
+            // simple 1hz clock
+            const tick = Date.now() % 1000;
+            if (tick < 500 && (c.props.lastTick || 0) >= 500) {
+                return { ...c, props: { ...c.props, state: !c.props.state, lastTick: tick } };
+            }
+            return { ...c, props: { ...c.props, lastTick: tick } };
+        } else if (c.type === 'REGISTER') {
+            const clkWire = model.wires.find(w => w.to.compId === c.id && w.to.port === 'CLK');
+            const enWire = model.wires.find(w => w.to.compId === c.id && w.to.port === 'EN');
+            const dWire = model.wires.find(w => w.to.compId === c.id && w.to.port === 'D');
+
+            const clkId = clkWire ? clkWire.from.compId + ':' + clkWire.from.port : undefined;
+            const enId = enWire ? enWire.from.compId + ':' + enWire.from.port : undefined;
+            const dId = dWire ? dWire.from.compId + ':' + dWire.from.port : undefined;
+
+            const clk = clkId ? signals[clkId] : false;
+            const prevClk = clkId ? prevSignals[clkId] : false;
+            const en = enId ? signals[enId] : true; // enabled by default
+            const d = dId ? signals[dId] : false;
+
+            if (clk && !prevClk && en) {
+                return { ...c, props: { ...c.props, state: d } };
+            }
+        }
+        return c;
+    });
+    return { ...model, components: newComps };
 }

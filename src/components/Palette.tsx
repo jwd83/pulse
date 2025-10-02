@@ -9,7 +9,7 @@ export const Palette: React.FC<{
   const [customComponents, setCustomComponents] = useState<CustomComponentDefinition[]>([])
   const [isLoading, setIsLoading] = useState(false)
   
-  const items: ComponentType[] = ['AND', 'OR', 'NOT', 'NAND', 'NOR', 'XOR', 'XNOR', 'TOGGLE', 'CLOCK', 'LED']
+  const items: ComponentType[] = ['AND', 'OR', 'NOT', 'NAND', 'NOR', 'XOR', 'XNOR', 'TOGGLE', 'CLOCK', 'LED', 'REGISTER']
   
   const handleLoadCustomComponent = useCallback(async () => {
     if (isLoading) return

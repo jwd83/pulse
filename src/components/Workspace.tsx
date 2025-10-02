@@ -77,25 +77,7 @@ export const Workspace: React.FC<{ model: CircuitModel; setModel: (m: CircuitMod
   }
 
 
-  // simple clock driver: toggle CLOCK components once per second
-  useEffect(() => {
-    latestModelRef.current = model
-  }, [model])
 
-  // simple clock driver: toggle CLOCK components once per second
-  useEffect(() => {
-    const id = setInterval(() => {
-      const m = latestModelRef.current
-      const comps = m.components.map((c) => {
-        if (c.type === 'CLOCK') {
-          return { ...c, props: { ...c.props, state: !c.props.state } }
-        }
-        return c
-      })
-      setModel({ ...m, components: comps })
-    }, 1000)
-    return () => clearInterval(id)
-  }, [setModel])
 
   return (
     <div ref={ref} onPointerMove={onPointerMove} className="relative bg-white h-full border rounded" style={{ minHeight: 400 }}>
