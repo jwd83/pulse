@@ -62,12 +62,71 @@ export default function App() {
   useEffect(() => {
     const id = setInterval(() => {
       setModel(currentModel => {
-        const newSignals = evaluate(currentModel)
-        const newModel = updateStatefulComponents(currentModel, newSignals, prevSignalsRef.current)
+        // Store signals BEFORE any updates to get true previous state
+        const previousSignals = evaluate(currentModel);
         
-        prevSignalsRef.current = newSignals
-        setSignals(newSignals)
-        return newModel
+        // First, update clocks based on time (they don't depend on signals)
+        const clockUpdatedModel = {
+          ...currentModel,
+          components: currentModel.components.map(c => {
+            if (c.type === 'CLOCK') {
+              // Apply clock update logic inline
+              const now = Date.now();
+              const period = 500;
+              const halfPeriod = period / 2;
+              const timeInCycle = now % period;
+              const shouldBeHigh = timeInCycle < halfPeriod;
+              
+              if (!!c.props.state !== shouldBeHigh) {
+                console.log(`Clock ${c.id}: Toggle from ${c.props.state} to ${shouldBeHigh} (time=${timeInCycle})`);
+                return { ...c, props: { ...c.props, state: shouldBeHigh } };
+              }
+            }
+            return c;
+          })
+        };
+        
+        // Evaluate signals with updated clocks
+        const currentSignals = evaluate(clockUpdatedModel)
+        
+        // Update registers based on signal transitions
+        const finalModel = {
+          ...clockUpdatedModel,
+          components: clockUpdatedModel.components.map(c => {
+            if (c.type === 'REGISTER') {
+              const clkWire = clockUpdatedModel.wires.find(w => w.to.compId === c.id && w.to.port === 'CLK');
+              const enWire = clockUpdatedModel.wires.find(w => w.to.compId === c.id && w.to.port === 'EN');
+              const dWire = clockUpdatedModel.wires.find(w => w.to.compId === c.id && w.to.port === 'D');
+              
+              const clkId = clkWire ? clkWire.from.compId + ':' + clkWire.from.port : undefined;
+              const enId = enWire ? enWire.from.compId + ':' + enWire.from.port : undefined;
+              const dId = dWire ? dWire.from.compId + ':' + dWire.from.port : undefined;
+              
+              const clk = clkId ? currentSignals[clkId] : false;
+              const prevClk = clkId ? previousSignals[clkId] : false;
+              const en = enId ? currentSignals[enId] : true;
+              const d = dId ? currentSignals[dId] : false;
+              
+              console.log(`Register ${c.id}: Clock signal ${clkId}: current=${clk}, previous=${prevClk}`);
+              
+              // Capture data on rising edge (when clock goes from low to high)
+              if (clk && !prevClk && en) {
+                console.log(`Register ${c.id}: Rising edge! D=${d} -> Setting state from ${c.props.state} to ${d}`);
+                return { ...c, props: { ...c.props, state: d } };
+              }
+              console.log(`Register ${c.id}: No trigger. CLK=${clk}/${prevClk} (rising_edge=${clk && !prevClk}), EN=${en}, D=${d}, currentState=${c.props.state}`);
+            }
+            return c;
+          })
+        };
+        
+        // Re-evaluate signals with final model (to show register Q outputs)
+        const finalSignals = evaluate(finalModel);
+        
+        // Update the ref with current signals for next cycle
+        prevSignalsRef.current = currentSignals
+        setSignals(finalSignals)
+        return finalModel
       })
     }, 60)
     return () => clearInterval(id)
@@ -112,12 +171,21 @@ export default function App() {
             onAdd={(type, customDef) => {
               // add new component at default location
               const id = 'c' + Math.random().toString(36).slice(2, 9)
+              
+              // Initialize props based on component type
+              let props: Record<string, any> = {}
+              if (type === 'TOGGLE' || type === 'CLOCK') {
+                props.state = false // Initialize toggles and clocks to false
+              } else if (type === 'REGISTER') {
+                props.state = false // Initialize register to false (Q output starts at 0)
+              }
+              
               const comp = {
                 id,
                 type,
                 x: 120,
                 y: 120,
-                props: {},
+                props,
                 ...(customDef ? { customDef } : {})
               }
               setModel((m) => ({ ...m, components: [...m.components, comp] }))

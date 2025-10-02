@@ -105,6 +105,8 @@ export function getComponentInputPorts(component: Component): string[] {
 export function getComponentOutputPorts(component: Component): string[] {
   if (component.type === 'CUSTOM' && component.customDef) {
     return getCustomComponentOutputPorts(component.customDef)
+  } else if (component.type === 'REGISTER') {
+    return ['Q']
   } else if (component.type !== 'LED') {
     return ['OUT']
   }

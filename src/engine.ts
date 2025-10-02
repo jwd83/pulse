@@ -60,7 +60,7 @@ export function evaluate(model: CircuitModel): SignalMap {
         return outputs['OUT0'] || false
     }
 
-    const computeOutput = (c: Component): boolean => {
+    const computeOutput = (c: Component, outputPort?: string): boolean => {
         switch (c.type) {
             case 'TOGGLE':
             case 'CLOCK':
@@ -82,7 +82,11 @@ export function evaluate(model: CircuitModel): SignalMap {
             case 'XNOR':
                 return Boolean(inputOf(c.id, 'A')) === Boolean(inputOf(c.id, 'B'))
             case 'REGISTER':
-                return !!c.props.state
+                // Register outputs its stored state on the Q port
+                if (outputPort === 'Q') {
+                    return !!(c.props.state ?? false); // Default to false if state is undefined
+                }
+                return false
             case 'CUSTOM':
                 return computeCustomComponent(c)
             default:
@@ -125,17 +129,33 @@ export function evaluate(model: CircuitModel): SignalMap {
 
     // initialize signals for stateful sources first
     for (const c of model.components) {
-        const keyOut = c.id + ':OUT'
-        if (c.type === 'TOGGLE' || c.type === 'CLOCK') signals[keyOut] = !!c.props.state
-        else signals[keyOut] = false
+        if (c.type === 'REGISTER') {
+            const keyQ = c.id + ':Q'
+            signals[keyQ] = !!(c.props.state ?? false) // Default to false if undefined
+        } else {
+            const keyOut = c.id + ':OUT'
+            if (c.type === 'TOGGLE' || c.type === 'CLOCK') {
+                signals[keyOut] = !!(c.props.state ?? false)
+                // console.log(`Initializing signal ${keyOut} = ${signals[keyOut]} (component state: ${c.props.state})`);
+            } else {
+                signals[keyOut] = false
+            }
+        }
     }
 
     // Evaluate acyclic portion in topological order
     const topoSet = new Set(topo)
     for (const id of topo) {
         const c = compsById.get(id)!
-        const keyOut = c.id + ':OUT'
-        signals[keyOut] = computeOutput(c)
+        if (c.type === 'REGISTER') {
+            const keyQ = c.id + ':Q'
+            signals[keyQ] = computeOutput(c, 'Q')
+        } else {
+            const keyOut = c.id + ':OUT'
+            const newValue = computeOutput(c)
+            signals[keyOut] = newValue
+            // Clock signals are now handled in App.tsx
+        }
     }
 
     // If we didn't include all components in topo, we have cycles. Iterate remaining nodes until stable.
@@ -145,11 +165,20 @@ export function evaluate(model: CircuitModel): SignalMap {
         for (let iter = 0; iter < MAX_ITER; iter++) {
             let changed = false
             for (const c of remaining) {
-                const keyOut = c.id + ':OUT'
-                const newVal = computeOutput(c)
-                if (!!signals[keyOut] !== !!newVal) {
-                    signals[keyOut] = newVal
-                    changed = true
+                if (c.type === 'REGISTER') {
+                    const keyQ = c.id + ':Q'
+                    const newVal = computeOutput(c, 'Q')
+                    if (!!signals[keyQ] !== !!newVal) {
+                        signals[keyQ] = newVal
+                        changed = true
+                    }
+                } else {
+                    const keyOut = c.id + ':OUT'
+                    const newVal = computeOutput(c)
+                    if (!!signals[keyOut] !== !!newVal) {
+                        signals[keyOut] = newVal
+                        changed = true
+                    }
                 }
             }
             if (!changed) break
@@ -160,33 +189,7 @@ export function evaluate(model: CircuitModel): SignalMap {
 }
 
 export function updateStatefulComponents(model: CircuitModel, signals: SignalMap, prevSignals: SignalMap): CircuitModel {
-    const newComps = model.components.map(c => {
-        if (c.type === 'CLOCK') {
-            // simple 1hz clock
-            const tick = Date.now() % 1000;
-            if (tick < 500 && (c.props.lastTick || 0) >= 500) {
-                return { ...c, props: { ...c.props, state: !c.props.state, lastTick: tick } };
-            }
-            return { ...c, props: { ...c.props, lastTick: tick } };
-        } else if (c.type === 'REGISTER') {
-            const clkWire = model.wires.find(w => w.to.compId === c.id && w.to.port === 'CLK');
-            const enWire = model.wires.find(w => w.to.compId === c.id && w.to.port === 'EN');
-            const dWire = model.wires.find(w => w.to.compId === c.id && w.to.port === 'D');
-
-            const clkId = clkWire ? clkWire.from.compId + ':' + clkWire.from.port : undefined;
-            const enId = enWire ? enWire.from.compId + ':' + enWire.from.port : undefined;
-            const dId = dWire ? dWire.from.compId + ':' + dWire.from.port : undefined;
-
-            const clk = clkId ? signals[clkId] : false;
-            const prevClk = clkId ? prevSignals[clkId] : false;
-            const en = enId ? signals[enId] : true; // enabled by default
-            const d = dId ? signals[dId] : false;
-
-            if (clk && !prevClk && en) {
-                return { ...c, props: { ...c.props, state: d } };
-            }
-        }
-        return c;
-    });
-    return { ...model, components: newComps };
+    // This function is no longer used since we moved the logic to App.tsx for better control
+    // Keeping for backwards compatibility, but it's essentially a no-op now
+    return model;
 }

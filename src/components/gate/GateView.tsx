@@ -206,6 +206,27 @@ export const GateView: React.FC<{ comp: Component; onMove: (dx: number, dy: numb
             </div>
           )
         })
+      ) : comp.type === 'REGISTER' ? (
+        // Register has Q output
+        (() => {
+          const portPos = getPortPosition(comp, 'Q', 'output')
+          const relativeTop = portPos.y - comp.y - 6
+          return (
+            <div
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                emitPort('Q', 'out', e);
+              }}
+              className="absolute right-0 w-3 h-3 rounded-full"
+              style={{ 
+                top: relativeTop,
+                background: signals[comp.id+':Q'] ? 'red' : 'black' 
+              }}
+            >
+                <span className="absolute -right-10 text-xs w-10">Q</span>
+            </div>
+          )
+        })()
       ) : comp.type !== 'LED' && (() => {
         // Standard single output
         const portPos = getPortPosition(comp, 'OUT', 'output')
