@@ -65,7 +65,7 @@ export const GateView: React.FC<{ comp: Component; onMove: (dx: number, dy: numb
       style={{ left: comp.x, top: comp.y }}
       className="absolute w-24 h-16 bg-gray-100 border rounded shadow flex items-center justify-center cursor-move select-none">
       <div className="text-sm font-medium">
-        {comp.type === 'CUSTOM' && comp.customDef ? comp.customDef.name : comp.type}
+        {comp.type === 'CUSTOM' && comp.customDef ? comp.customDef.name : comp.type === 'REGISTER' ? 'REG' : comp.type}
       </div>
       {comp.type === 'LED' && (
         <div className={`absolute left-1/2 -translate-x-1/2 bottom-0 w-3 h-3 rounded-full ${signals[comp.id+':OUT'] ? 'bg-red-600' : 'bg-black'}`} />
