@@ -8,6 +8,10 @@ export const Workspace: React.FC<{ model: CircuitModel; setModel: (m: CircuitMod
   const latestModelRef = useRef<CircuitModel>(model)
   const [connecting, setConnecting] = useState<{ from?: { compId: string; port: string; x: number; y: number }; to?: { x: number; y: number } }>(() => ({}))
   const [hoveredWire, setHoveredWire] = useState<string | null>(null)
+  const [workspaceOffset, setWorkspaceOffset] = useState({ x: 0, y: 0 })
+  const [isPanning, setIsPanning] = useState(false)
+  const [panStartPos, setPanStartPos] = useState({ x: 0, y: 0 })
+  const [panStartOffset, setPanStartOffset] = useState({ x: 0, y: 0 })
 
   useEffect(() => {
     // keep components within bounds
@@ -33,7 +37,10 @@ export const Workspace: React.FC<{ model: CircuitModel; setModel: (m: CircuitMod
   const startConnection = (pe: PortEvent) => {
     if (pe.portType !== 'out') return;
     // Use the exact port position calculation for consistency
-    const portPos = getPortPosition(pe.comp, pe.portName, 'output')
+    // Find the original component (without offset) to get correct port position
+    const originalComp = model.components.find(c => c.id === pe.comp.id)
+    if (!originalComp) return;
+    const portPos = getPortPosition(originalComp, pe.portName, 'output')
     setConnecting({ from: { compId: pe.comp.id, port: pe.portName, x: portPos.x, y: portPos.y }, to: { x: portPos.x, y: portPos.y } })
   }
 
@@ -41,11 +48,15 @@ export const Workspace: React.FC<{ model: CircuitModel; setModel: (m: CircuitMod
     if (!connecting.from) return setConnecting({})
     // if ended on an input port, create wire
     if (pe && pe.portType === 'in') {
+      // Find original component to get the actual component ID
+      const originalComp = model.components.find(c => c.id === pe.comp.id)
+      if (!originalComp) return setConnecting({})
+      
       // avoid duplicates
-      const exists = model.wires.find((w) => w.from.compId === connecting.from!.compId && w.from.port === connecting.from!.port && w.to.compId === pe.comp.id && w.to.port === pe.portName)
+      const exists = model.wires.find((w) => w.from.compId === connecting.from!.compId && w.from.port === connecting.from!.port && w.to.compId === originalComp.id && w.to.port === pe.portName)
       if (!exists) {
         const id = 'w' + Math.random().toString(36).slice(2, 9)
-        const w: Wire = { id, from: { compId: connecting.from.compId, port: connecting.from.port }, to: { compId: pe.comp.id, port: pe.portName } }
+        const w: Wire = { id, from: { compId: connecting.from.compId, port: connecting.from.port }, to: { compId: originalComp.id, port: pe.portName } }
         setModel({ ...model, wires: [...model.wires, w] })
       }
     }
@@ -57,16 +68,51 @@ export const Workspace: React.FC<{ model: CircuitModel; setModel: (m: CircuitMod
     setHoveredWire(null)
   }
 
+  const onPointerDown = (e: React.PointerEvent) => {
+    // Start panning if Ctrl is held and left mouse button
+    if (e.ctrlKey && e.button === 0) {
+      e.preventDefault()
+      setIsPanning(true)
+      setPanStartPos({ x: e.clientX, y: e.clientY })
+      setPanStartOffset({ ...workspaceOffset })
+      // Capture pointer to ensure we get move events even if mouse leaves element
+      const target = e.currentTarget as HTMLElement
+      target.setPointerCapture(e.pointerId)
+    }
+  }
+
   const onPointerMove = (e: React.PointerEvent) => {
-    if (!connecting.from) return
     const rect = ref.current?.getBoundingClientRect()
     if (!rect) return
 
+    // Handle panning
+    if (isPanning && e.ctrlKey) {
+      const deltaX = e.clientX - panStartPos.x
+      const deltaY = e.clientY - panStartPos.y
+      setWorkspaceOffset({
+        x: panStartOffset.x + deltaX,
+        y: panStartOffset.y + deltaY
+      })
+      return
+    }
+
+    // Handle wire connection
+    if (!connecting.from) return
+
     // Update connecting.to with clamped coordinates to ensure it stays within bounds
-    const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width))
-    const y = Math.max(0, Math.min(e.clientY - rect.top, rect.height))
+    const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width)) - workspaceOffset.x
+    const y = Math.max(0, Math.min(e.clientY - rect.top, rect.height)) - workspaceOffset.y
 
     setConnecting((c) => ({ from: c.from, to: { x, y } }))
+  }
+
+  const onPointerUp = (e: React.PointerEvent) => {
+    if (isPanning) {
+      setIsPanning(false)
+      // Release pointer capture
+      const target = e.currentTarget as HTMLElement
+      target.releasePointerCapture(e.pointerId)
+    }
   }
 
   // wire rendering: simple Manhattan routing between port positions (absolute within workspace)
@@ -80,7 +126,14 @@ export const Workspace: React.FC<{ model: CircuitModel; setModel: (m: CircuitMod
 
 
   return (
-    <div ref={ref} onPointerMove={onPointerMove} className="relative bg-white h-full border rounded" style={{ minHeight: 400 }}>
+    <div 
+      ref={ref} 
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove} 
+      onPointerUp={onPointerUp}
+      className={`relative bg-white h-full border rounded ${isPanning ? 'cursor-grabbing' : 'cursor-default'}`} 
+      style={{ minHeight: 400, userSelect: isPanning ? 'none' : 'auto' }}
+    >
       <svg className="absolute inset-0 w-full h-full" style={{ pointerEvents: 'none' }}>
         {model.wires.map((w) => {
           // resolve port positions from components
@@ -92,10 +145,10 @@ export const Workspace: React.FC<{ model: CircuitModel; setModel: (m: CircuitMod
           const fromPos = getPortPosition(from, w.from.port, 'output')
           const toPos = getPortPosition(to, w.to.port, 'input')
           
-          const fx = fromPos.x
-          const fy = fromPos.y
-          const tx = toPos.x
-          const ty = toPos.y
+          const fx = fromPos.x + workspaceOffset.x
+          const fy = fromPos.y + workspaceOffset.y
+          const tx = toPos.x + workspaceOffset.x
+          const ty = toPos.y + workspaceOffset.y
           // color wire based on the signal carried by the source component's output port
           const sig = signals[from.id + ':' + w.from.port]
           const isHovered = hoveredWire === w.id
@@ -139,7 +192,12 @@ export const Workspace: React.FC<{ model: CircuitModel; setModel: (m: CircuitMod
           const color = sig ? 'red' : 'black'
           return (
             <path
-              d={renderWirePath(connecting.from.x, connecting.from.y, connecting.to.x, connecting.to.y)}
+              d={renderWirePath(
+                connecting.from.x + workspaceOffset.x, 
+                connecting.from.y + workspaceOffset.y, 
+                connecting.to.x + workspaceOffset.x, 
+                connecting.to.y + workspaceOffset.y
+              )}
               stroke={color}
               strokeWidth={2}
               fill="none"
@@ -157,7 +215,11 @@ export const Workspace: React.FC<{ model: CircuitModel; setModel: (m: CircuitMod
           uiSignals[toKey] = !!signals[fromKey]
         }
         return model.components.map((c) => (
-          <GateView key={c.id} comp={c}
+          <GateView key={c.id} comp={{
+            ...c,
+            x: c.x + workspaceOffset.x,
+            y: c.y + workspaceOffset.y
+          }}
             onMove={(dx, dy) => {
             // clamp while moving inside container
             const rect = ref.current?.getBoundingClientRect()
